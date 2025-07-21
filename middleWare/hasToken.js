@@ -36,7 +36,8 @@ export const hasToken = async (req, res, next) => {
                             message: "user not found",
                         });
                     }
-
+                    req.userId = user._id;
+                    next();
                 }
             });
         }
