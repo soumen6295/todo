@@ -3,6 +3,7 @@ import dotenv from 'dotenv/config';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import {verifyEmail} from '../emailVerify/verifyEmail.js';
+import sessionSchema from "../model/sessionSchema.js";
 
 export const register = async (req, res) => {
   try {
@@ -44,7 +45,7 @@ export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
     const user = await userSchema.findOne({ email: email });
- 
+
     if (!user) {
       return res.status(401).json({
         success: false,
@@ -59,6 +60,11 @@ export const login = async (req, res) => {
         });
       } else if (passwordCheck && user.verified === true) {
         
+        const existingSession = await sessionSchema.findOne({ userId: user._id });
+        if (existingSession) {
+            await sessionSchema.deleteOne({ userId: user._id });
+        }
+        await sessionSchema.create({ userId: user._id })
 
         const accessToken = jwt.sign(
           {
@@ -127,7 +133,7 @@ export const verification = async (req, res) => {
             message: "Token verification failed, possibly expired",
           });
         } else {
-          const { id } = decoded; //here id comes in the body
+          const { id } = decoded; 
           const user = await userSchema.findById(id);
           if (!user) {
             return res.status(404).json({
@@ -153,4 +159,17 @@ export const verification = async (req, res) => {
       message: "Could not access",
     });
   }
+};
+
+
+export const logout = async (req, res) => {
+    try {
+        const userId = req.userId;
+        await sessionSchema.deleteMany({ userId });
+        await userSchema.findByIdAndUpdate(userId, { isLoggedIn: false });
+
+        return res.status(200).json({ success: true, message: "Logged out successfully" });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message })
+    }
 };
